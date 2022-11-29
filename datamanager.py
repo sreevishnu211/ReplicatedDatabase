@@ -18,3 +18,4 @@ class DataManager:
             elif self.dataManagerId == 1 + ( i % 10 ):
                 self.records[i] = Record()
         
+        
