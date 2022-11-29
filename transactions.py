@@ -22,3 +22,32 @@ class TransactionBaseClass:
         raise Exception("TransactionBaseClass.abortTransaction not implemented.")
 
 
+class ReadOnlyTransaction(TransactionBaseClass):
+    def __init__(self, transactionId, startTime):
+        super().__init__(transactionId, startTime)
+
+    def processOperation(self, operation):
+        pass
+
+    def finishTransaction(self):
+        pass
+
+    def abortTransaction(self):
+        pass
+
+
+class ReadWriteTransaction(TransactionBaseClass):
+    def __init__(self, transactionId, startTime):
+        super().__init__(transactionId, startTime)
+
+    def processOperation(self, operation):
+        pass
+
+    def finishTransaction(self):
+        pass
+
+    def abortTransaction(self):
+        pass
+
+    def refreshOperations(self):
+        pass
