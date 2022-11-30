@@ -25,6 +25,7 @@ class TransactionBaseClass:
 class ReadOnlyTransaction(TransactionBaseClass):
     def __init__(self, transactionId, startTime):
         super().__init__(transactionId, startTime)
+        print("Read Only Transaction {} begins.".format(self.transactionId))
 
     def processOperation(self, operation):
         pass
@@ -39,6 +40,7 @@ class ReadOnlyTransaction(TransactionBaseClass):
 class ReadWriteTransaction(TransactionBaseClass):
     def __init__(self, transactionId, startTime):
         super().__init__(transactionId, startTime)
+        print("Read Write Transaction {} begins.".format(self.transactionId))
 
     def processOperation(self, operation):
         pass

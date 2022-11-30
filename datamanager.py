@@ -1,5 +1,6 @@
 from record import Record
 from enum import Enum
+from collections import OrderedDict
 
 class DataManagerStatus(Enum):
     LIVE = 1
@@ -11,11 +12,18 @@ class DataManager:
         self.dataManagerId = dataManagerId
         self.status = DataManagerStatus.LIVE
         self.lastFailedTime = 0
-        self.records = {}
+        self.records = OrderedDict()
         for i in range(1, numOfRecords + 1):
             if i % 2 == 0:
                 self.records[i] = Record()
             elif self.dataManagerId == 1 + ( i % 10 ):
                 self.records[i] = Record()
+
+    
+    def fail(self):
+        pass
+
+    def recover(self):
+        pass
         
         
