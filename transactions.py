@@ -14,6 +14,7 @@ class TransactionBaseClass:
         self.operations = []
         self.dataManagers = dataManagers
         self.status = TransactionStatus.ALIVE
+        self.dataManagersTouched = set()
 
     def processOperation(self, operation):
         raise Exception("TransactionBaseClass.processOperation not implemented.")
@@ -49,27 +50,21 @@ class ReadWriteTransaction(TransactionBaseClass):
         if operation.status == OperationStatus.COMPLETED:
             return
 
-        if operation.lockRequestedSite == None:
-            for key, dm in self.dataManagers:
+        if not operation.lockRequested:
+            for dm in self.dataManagers.values():
                 if dm.isReadOKForRWTrans(operation.record):
                     dm.requestReadLock(self.transactionId, operation.record)
-                    operation.lockRequestedSite = dm.dataManagerId
-                    break
+                    operation.lockRequested = True
+                    
         
-        if operation.lockRequestedSite != None:
-            if self.dataManagers[operation.lockRequestedSite].isReadOKForRWTrans(operation.record):
-                if self.dataManagers[operation.lockRequestedSite].isReadLockAquired(self.transactionId, operation.record):
-                    data = self.dataManagers[operation.lockRequestedSite].readRecord(operation.record)
-                    operation.status = OperationStatus.COMPLETED
+        if operation.lockRequested:
+            for dm in self.dataManagers.values():
+                if dm.isReadOKForRWTrans(operation.record) and dm.isReadLockAquired(self.transactionId, operation.record):
+                    data = dm.readRecord(operation.record)
                     print("{} read from {} and got {}".format(self.transactionId, operation.record, data))
+                    self.dataManagersTouched.add(dm.dataManagerId)
+                    operation.status = OperationStatus.COMPLETED
                     return
-            else:
-                # TODO: You hit this step, when the site from which you initially req lock from failed.
-                # So this transaction should now be in aborted state.
-                # the most I can do here is if i still have to complete this transaction, i would have to 
-                # get a lock from a new place, by setting operation.lockRequestedSite = None and 
-                # recursively calling this function.
-                pass
 
 
 

@@ -169,6 +169,7 @@ class TransactionManager:
                 else:
                     self.dataManagers[operation.site].fail()
                     # TODO: Abort transactions by using the locks table from dm.
+                    # TODO: Clear non commited values also.
             elif isinstance(operation, RecoverOp):
                 if operation.site not in self.dataManagers:
                     print("Error in input line - {}".format(line))

@@ -17,7 +17,7 @@ class ReadOp:
         self.transactionId = transactionId
         self.record = int(record[1:])
         self.status = OperationStatus.IN_PROGRESS
-        self.lockRequestedSite = None
+        self.lockRequested = False
 
 class WriteOp:
     def __init__(self, transactionId, record, value):
