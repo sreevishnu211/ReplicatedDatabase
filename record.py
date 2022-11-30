@@ -25,6 +25,7 @@ class Record:
 
     def insertNewVersion(self, data, transactionId, commitTime = None):
         self.versions.appendleft(RecordVersion(data, transactionId, commitTime))
+        self.recovered = True
 
     def addLockRequest(self, transactionId, lockType):
         if lockType == LockType.READ:
@@ -44,14 +45,14 @@ class Record:
                     return True
                 if lock.transactionId != transactionId and lock.lockType == LockType.WRITE:
                     return False
-            return False
         else:
             for lock in self.locks:
                 if lock.transactionId == transactionId and lock.lockType == LockType.WRITE:
                     return True
                 if lock.transactionId != transactionId:
                     return False
-            return False
+        
+        return False
     
     def removeUncommitedVersions(self, transactionId):
         newVersions = deque([])

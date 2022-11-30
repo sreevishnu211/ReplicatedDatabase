@@ -50,16 +50,10 @@ class ReadWriteTransaction(TransactionBaseClass):
         if operation.status == OperationStatus.COMPLETED:
             return
 
-        if not operation.lockRequested:
-            for dm in self.dataManagers.values():
-                if dm.isReadOKForRWTrans(operation.record):
-                    dm.requestReadLock(self.transactionId, operation.record)
-                    operation.lockRequested = True
-                    
-        
-        if operation.lockRequested:
-            for dm in self.dataManagers.values():
-                if dm.isReadOKForRWTrans(operation.record) and dm.isReadLockAquired(self.transactionId, operation.record):
+        for dm in self.dataManagers.values():
+            if dm.isReadOKForRWTrans(operation.record):
+                dm.requestReadLock(self.transactionId, operation.record)
+                if dm.isReadLockAquired(self.transactionId, operation.record):
                     data = dm.readRecord(operation.record)
                     print("{} read from {} and got {}".format(self.transactionId, operation.record, data))
                     self.dataManagersTouched.add(dm.dataManagerId)
@@ -69,7 +63,28 @@ class ReadWriteTransaction(TransactionBaseClass):
 
 
     def writeOperation(self, operation):
-        pass
+        if operation.status == OperationStatus.COMPLETED:
+            return
+        
+        writeLockStatus = []
+        for dm in self.dataManagers.values():
+            if dm.isWriteOKForRWTrans(operation.record):
+                dm.requestWriteLock(self.transactionId, operation.record)
+                writeLockStatus.append( dm.isWriteLockAquired(self.transactionId, operation.record) )
+
+        wroteRecordTo = []
+        if len(writeLockStatus) > 0 and all(writeLockStatus):
+            for dm in self.dataManagers.values():
+                if dm.isWriteOKForRWTrans(operation.record):
+                    dm.writeRecord(operation.record, operation.value, self.transactionId, None)
+                    wroteRecordTo.append(dm.dataManagerId)
+
+        if len(wroteRecordTo) > 0:
+            print("{} wrote the value {} to record {} in {}".format(self.transactionId, operation.value, operation.record, wroteRecordTo))
+            for dmId in wroteRecordTo:
+                self.dataManagersTouched.add(dmId)
+            operation.status = OperationStatus.COMPLETED
+
 
     def processOperation(self, operation):
         self.operations.append(operation)
