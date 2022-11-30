@@ -104,6 +104,12 @@ class TransactionManager:
     def dump(self):
         pass
 
+    def checkAndDealWithDeadlock(self):
+        pass
+
+    def refreshTransactions(self):
+        pass
+
 
     def run(self):
         for line in self.inputFile:
@@ -123,32 +129,38 @@ class TransactionManager:
                     print("Transaction name - {} already exists".format(operation.transactionId))
                     exit()
                 else:
-                    self.allTransactions[operation.transactionId] = ReadWriteTransaction(operation.transactionId, self.time)
+                    self.allTransactions[operation.transactionId] = ReadWriteTransaction(operation.transactionId, self.time, self.dataManagers)
             elif isinstance(operation, BeginROOp):
                 if operation.transactionId in self.allTransactions:
                     print("Error in input line - {}".format(line))
                     print("Transaction name - {} already exists".format(operation.transactionId))
                     exit()
                 else:
-                    self.allTransactions[operation.transactionId] = ReadOnlyTransaction(operation.transactionId, self.time)
+                    self.allTransactions[operation.transactionId] = ReadOnlyTransaction(operation.transactionId, self.time, self.dataManagers)
             elif isinstance(operation, ReadOp) or isinstance(operation, WriteOp):
                 if operation.transactionId not in self.allTransactions or \
-                self.allTransactions[operation.transactionId].status != TransactionStatus.ALIVE:
+                self.allTransactions[operation.transactionId].status == TransactionStatus.COMPLETED:
                     print("Error in input line - {}".format(line))
                     print("Transaction - {} hasnt been begun or is unknown or is ended".format(operation.transactionId))
                     exit()
+                elif self.allTransactions[operation.transactionId].status == TransactionStatus.ABORTED:
+                    print("Transaction - {} has already been aborted, so this operation will not execute".format(operation.transactionId))
                 else:
                     self.allTransactions[operation.transactionId].processOperation(operation)
             elif isinstance(operation, DumpOp):
                 self.dump()
             elif isinstance(operation, EndOp):
                 if operation.transactionId not in self.allTransactions or \
-                self.allTransactions[operation.transactionId].status != TransactionStatus.ALIVE:
+                self.allTransactions[operation.transactionId].status == TransactionStatus.COMPLETED:
                     print("Error in input line - {}".format(line))
                     print("Transaction - {} hasnt been begun or is unknown or is ended".format(operation.transactionId))
                     exit()
+                elif self.allTransactions[operation.transactionId].status == TransactionStatus.ABORTED:
+                    # TODO: Revisit this
+                    self.allTransactions[operation.transactionId].status = TransactionStatus.COMPLETED
                 else:
                     self.allTransactions[operation.transactionId].finishTransaction()
+                    self.refreshTransactions()
             elif isinstance(operation, FailOp):
                 if operation.site not in self.dataManagers:
                     print("Error in input line - {}".format(line))
@@ -156,10 +168,15 @@ class TransactionManager:
                     exit()
                 else:
                     self.dataManagers[operation.site].fail()
+                    # TODO: Abort transactions by using the locks table from dm.
             elif isinstance(operation, RecoverOp):
                 if operation.site not in self.dataManagers:
                     print("Error in input line - {}".format(line))
                     print("The given site - {} is not in the range 1-20".format(operation.site))
                     exit()
                 else:
+                    # TODO: Probably might be a good idea to refresh transactions here also.
+                    # what if a trans is waiting on a non replicated items read and the dm for it just came up.
                     self.dataManagers[operation.site].recover()
+
+            self.checkAndDealWithDeadlock()

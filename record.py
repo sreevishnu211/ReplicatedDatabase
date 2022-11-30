@@ -17,10 +17,11 @@ class RecordVersion:
         self.commitTime = commitTime
 
 class Record:
-    def __init__(self):
+    def __init__(self, initialValue):
         self.versions = deque([])
         self.recovered = True
         self.locks = deque([])
+        self.versions.appendleft(RecordVersion(initialValue, "initialValue", 0))
 
     def insertNewVersion(self, data, transactionId, commitTime = None):
         self.versions.appendleft(RecordVersion(data, transactionId, commitTime))
@@ -35,6 +36,22 @@ class Record:
                 if lock.transactionId == transactionId and lock.lockType == LockType.WRITE:
                     return
         self.locks.append( Lock(transactionId, lockType) )
+
+    def isLockAquired(self, transactionId, lockType):
+        if lockType == LockType.READ:
+            for lock in self.locks:
+                if lock.transactionId == transactionId:
+                    return True
+                if lock.transactionId != transactionId and lock.lockType == LockType.WRITE:
+                    return False
+            return False
+        else:
+            for lock in self.locks:
+                if lock.transactionId == transactionId and lock.lockType == LockType.WRITE:
+                    return True
+                if lock.transactionId != transactionId:
+                    return False
+            return False
     
     def removeUncommitedVersions(self, transactionId):
         newVersions = deque([])
@@ -47,11 +64,14 @@ class Record:
         self.versions = newVersions
     
     def getLatestData(self):
-        for i in range( len(self.versions) ):
-            if self.versions[i].commitTime != None:
-                return self.versions[i].data
+        # TODO: probably just return the latest data. because if there is a write from a trans 
+        # and the same trans reads it, then we should return the writes value.
+        # for i in range( len(self.versions) ):
+        #     if self.versions[i].commitTime != None:
+        #         return self.versions[i].data
         
-        return None
+        # return None
+        return self.versions[0].data
 
     def getDataAtSpecificTime(self, requestedTime):
         for i in range( len(self.versions) ):

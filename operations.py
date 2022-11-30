@@ -13,15 +13,16 @@ class BeginROOp:
         self.transactionId = transactionId
 
 class ReadOp:
-    def __init__(self, transactionId, variable):
+    def __init__(self, transactionId, record):
         self.transactionId = transactionId
-        self.variable = int(variable[1:])
+        self.record = int(record[1:])
         self.status = OperationStatus.IN_PROGRESS
+        self.lockRequestedSite = None
 
 class WriteOp:
-    def __init__(self, transactionId, variable, value):
+    def __init__(self, transactionId, record, value):
         self.transactionId = transactionId
-        self.variable = int(variable[1:])
+        self.record = int(record[1:])
         self.value = value
         self.status = OperationStatus.IN_PROGRESS
 
