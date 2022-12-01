@@ -15,9 +15,9 @@ class DataManager:
         self.records = OrderedDict()
         for i in range(1, numOfRecords + 1):
             if i % 2 == 0:
-                self.records[i] = Record(i*10)
+                self.records[i] = Record(initialValue=i*10, replicated=True)
             elif self.dataManagerId == 1 + ( i % 10 ):
-                self.records[i] = Record(i*10)
+                self.records[i] = Record(initialValue=i*10, replicated=False)
 
     
     def isReadOKForRWTrans(self, record):
@@ -68,11 +68,26 @@ class DataManager:
         if record in self.records:
             self.records[record].insertNewVersion(value, transactionId, commitTime)
 
-    def fail(self):
-        # TODO: Abort transactions by using the locks table from dm.
-        pass
+    def fail(self, failureTime):
+        if self.status == DataManagerStatus.FAILED:
+            raise Exception("Site {} is already failed".format(self.dataManagerId))
+        
+        self.status = DataManagerStatus.FAILED
+        self.failedTimes.append(failureTime)
+        for record in self.records:
+            record.fail()
+
 
     def recover(self):
-        pass
+        if self.status == DataManagerStatus.FAILED:
+            self.status = DataManagerStatus.RECOVERING
+        else:
+            raise Exception("Site {} is already live or recovering.".format(self.dataManagerId))
+
+    def dump(self):
+        result = []
+        for recordId, record in self.records.items():
+            result.append("x"+ str(recordId) + ":" + str(record.getLatestCommittedData()))
+        print("Site " + str(self.dataManagerId) + ": " + " ".join(result))
         
         

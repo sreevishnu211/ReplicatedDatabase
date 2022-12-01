@@ -15,6 +15,7 @@ class TransactionBaseClass:
         self.dataManagers = dataManagers
         self.status = TransactionStatus.ALIVE
         self.dataManagersTouched = set()
+        self.isDeadlocked = False
 
     def processOperation(self, operation):
         raise Exception("TransactionBaseClass.processOperation not implemented.")

@@ -17,10 +17,11 @@ class RecordVersion:
         self.commitTime = commitTime
 
 class Record:
-    def __init__(self, initialValue):
+    def __init__(self, initialValue, replicated= False):
         self.versions = deque([])
         self.recovered = True
         self.locks = deque([])
+        self.replicated = replicated
         self.versions.appendleft(RecordVersion(initialValue, "initialValue", 0))
 
     def insertNewVersion(self, data, transactionId, commitTime = None):
@@ -54,7 +55,7 @@ class Record:
         
         return False
     
-    def removeUncommitedVersions(self, transactionId):
+    def removeUncommitedVersionForTrans(self, transactionId):
         newVersions = deque([])
         for i in range( len(self.versions) ):
             if self.versions[i].commitTime == None and self.versions[i].transactionId == transactionId:
@@ -63,6 +64,22 @@ class Record:
                 newVersions.append(self.versions[i])
 
         self.versions = newVersions
+
+    def removeAllUncommitedVersions(self):
+        newVersions = deque([])
+        for i in range( len(self.versions) ):
+            if self.versions[i].commitTime == None:
+                continue
+            else:
+                newVersions.append(self.versions[i])
+        self.versions = newVersions
+
+    def fail(self):
+        self.removeAllUncommitedVersions()
+        if self.replicated:
+            self.recovered = False
+        self.locks = deque([])
+        
     
     def getLatestData(self):
         # TODO: probably just return the latest data. because if there is a write from a trans 
@@ -73,6 +90,11 @@ class Record:
         
         # return None
         return self.versions[0].data
+
+    def getLatestCommittedData(self):
+        for version in self.versions:
+            if version.commitTime != None:
+                return version.data
 
     def getDataAtSpecificTime(self, requestedTime):
         for i in range( len(self.versions) ):

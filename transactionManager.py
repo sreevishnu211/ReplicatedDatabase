@@ -101,8 +101,23 @@ class TransactionManager:
             print("The given input - {} doesnt match the input requirements.".format(line))
             exit()
 
+    def fail(self, dataManagerId):
+        self.dataManagers[dataManagerId].fail(self.time)
+        for transaction in self.allTransactions.values():
+            if transaction.status == TransactionStatus.ALIVE and \
+                isinstance(transaction, ReadWriteTransaction) and \
+                dataManagerId in transaction.dataManagersTouched:
+                transaction.status = TransactionStatus.ABORTED
+                print("Transaction {} will abort because it had touched site {}".format(transaction.transactionId, dataManagerId))
+
+
+    def recover(self, dataManagerId):
+        self.dataManagers[dataManagerId].recover()
+
+
     def dump(self):
-        pass
+        for dataManager in self.dataManagers.values():
+            dataManager.dump()
 
     def checkAndDealWithDeadlock(self):
         pass
@@ -143,8 +158,9 @@ class TransactionManager:
                     print("Error in input line - {}".format(line))
                     print("Transaction - {} hasnt been begun or is unknown or is ended".format(operation.transactionId))
                     exit()
-                elif self.allTransactions[operation.transactionId].status == TransactionStatus.ABORTED:
-                    print("Transaction - {} has already been aborted, so this operation will not execute".format(operation.transactionId))
+                elif self.allTransactions[operation.transactionId].status == TransactionStatus.ABORTED \
+                    and self.allTransactions[operation.transactionId].isDeadlocked:
+                    print("Transaction - {} has already been aborted due to a deadlock, so this operation will not execute".format(operation.transactionId))
                 else:
                     self.allTransactions[operation.transactionId].processOperation(operation)
             elif isinstance(operation, DumpOp):
@@ -167,9 +183,7 @@ class TransactionManager:
                     print("The given site - {} is not in the range 1-20".format(operation.site))
                     exit()
                 else:
-                    self.dataManagers[operation.site].fail()
-                    # TODO: Abort transactions by using the locks table from dm.
-                    # TODO: Clear non commited values also.
+                    self.fail(operation.site)
             elif isinstance(operation, RecoverOp):
                 if operation.site not in self.dataManagers:
                     print("Error in input line - {}".format(line))
@@ -178,6 +192,7 @@ class TransactionManager:
                 else:
                     # TODO: Probably might be a good idea to refresh transactions here also.
                     # what if a trans is waiting on a non replicated items read and the dm for it just came up.
-                    self.dataManagers[operation.site].recover()
+                    self.recover(operation.site)
+                    self.refreshTransactions()
 
             self.checkAndDealWithDeadlock()
