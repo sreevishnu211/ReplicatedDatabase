@@ -23,7 +23,7 @@ class TransactionBaseClass:
     def endOperation(self):
         raise Exception("TransactionBaseClass.finishTransaction not implemented.")
 
-    def abortTransaction(self):
+    def abortDeadlockedTransaction(self):
         raise Exception("TransactionBaseClass.abortTransaction not implemented.")
 
 
@@ -32,14 +32,41 @@ class ReadOnlyTransaction(TransactionBaseClass):
         super().__init__(transactionId, startTime, dataManagers)
         print("Read Only Transaction {} begins.".format(self.transactionId))
 
+    def readOperation(self, operation):
+        if operation.status == OperationStatus.COMPLETED:
+            return
+        
+        for dm in self.dataManagers.values():
+            resultAndData = dm.readRecordForROTrans(operation.record, self.startTime)
+            if resultAndData and resultAndData[0]:
+                print("{} read from {} and got {}".format(self.transactionId, operation.record, resultAndData[1]))
+                operation.status = OperationStatus.COMPLETED
+                return
+
     def processOperation(self, operation):
-        pass
+        self.operations.append(operation)
+        if isinstance(operation, ReadOp):
+            self.readOperation(operation)
+        elif isinstance(operation, EndOp):
+            self.endOperation(operation)
+        elif isinstance(operation, WriteOp):
+            print("Error: Received a write operation - {} on a ReadOnly Transaction {}".format(operation, self.transactionId))
+            exit()
 
-    def endOperation(self):
-        pass
+    def endOperation(self, operation):
+        if operation.status == OperationStatus.COMPLETED:
+            return
 
-    def abortTransaction(self):
-        pass
+        if len(self.operations) > 0 and not isinstance( self.operations[-1], EndOp):
+            print("Transaction {} has received an operation {} after the end operation".format(self.transactionId, self.operations[-1]))
+            exit()
+
+        allOperationStatus = [ self.operations[i].status == OperationStatus.COMPLETED for i in range(len(self.operations) - 1) ]
+
+        if all(allOperationStatus): # TODO: Decide if you want to throw an error or wait for operations to complete
+            print("Transaction {} was committed.".format(self.transactionId))
+            operation.status = OperationStatus.COMPLETED
+            self.status = TransactionStatus.COMPLETED
 
 
 class ReadWriteTransaction(TransactionBaseClass):
@@ -58,7 +85,7 @@ class ReadWriteTransaction(TransactionBaseClass):
             return
 
         for dm in self.dataManagers.values():
-            if dm.isReadOKForRWTrans(operation.record):
+            if dm.isReadOKForRWTrans(operation.record, self.transactionId):
                 dm.requestReadLock(self.transactionId, operation.record)
                 if dm.isReadLockAquired(self.transactionId, operation.record):
                     data = dm.readRecord(operation.record)
@@ -136,14 +163,22 @@ class ReadWriteTransaction(TransactionBaseClass):
                     dataManager.commitTransaction(self.transactionId, operation.commitTime)
                     dataManager.removeLocksForTrans(self.transactionId)
                 print("Transaction {} was committed.".format(self.transactionId))
+            
+            self.dataManagersTouched = set()
             operation.status = OperationStatus.COMPLETED
             self.status = TransactionStatus.COMPLETED
         
             
 
-    def abortTransaction(self):
-        # TODO: set all operations to completed
-        pass
+    def abortDeadlockedTransaction(self):
+        self.isDeadlocked = True
+        self.status = TransactionStatus.ABORTED
+        self.dataManagersTouched = set()
 
-    def refreshOperations(self):
-        pass
+        for operation in self.operations:
+            operation.status = OperationStatus.COMPLETED
+
+        for dataManager in self.dataManagers.values():
+            dataManager.removeUncommittedDataForTrans(self.transactionId)
+            dataManager.removeLocksForTrans(self.transactionId)
+        print("Transaction {} was aborted due to a deadlock".format(self.transactionId))

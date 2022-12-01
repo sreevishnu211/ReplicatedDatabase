@@ -1,4 +1,4 @@
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from datamanager import DataManager
 from operations import *
 import re
@@ -18,6 +18,7 @@ class TransactionManager:
         self.time = 0
         self.allTransactions = OrderedDict()
         self.dataManagers = OrderedDict()
+        self.operations = []
         for i in range(1, self.numOfSites + 1):
             self.dataManagers[i] = DataManager(i, self.numOfRecords)
 
@@ -119,14 +120,45 @@ class TransactionManager:
         for dataManager in self.dataManagers.values():
             dataManager.dump()
 
-    def checkAndDealWithDeadlock(self):
-        pass
+    def cycleDetected(self, node, visited, root, graph):
+        visited.add(node)
+        for neighbour in graph[node]:
+            if neighbour == root:
+                return True
+            if neighbour not in visited:
+                if self.cycleDetected(neighbour, visited, root, graph):
+                    return True
+        return False
 
-    def refreshTransactions(self):
+    def checkAndDealWithDeadlock(self):
+        blockingRelations = set()
+        for dataManager in self.dataManagers.values():
+            blockingRelations.update(dataManager.getBlockingRelations())
+        graph = defaultdict(set)
+        for node, neighbour in blockingRelations:
+            graph[node].add(neighbour)
+        youngestTransTS = float("-inf")
+        youngestTrans = None
+        for trans in graph:
+            if self.cycleDetected() and self.allTransactions[trans].startTime > youngestTransTS:
+                youngestTransTS = self.allTransactions[trans].startTime
+                youngestTrans = self.allTransactions[trans]
+        
+        if youngestTrans:
+            youngestTrans.abortDeadlockedTransaction()
+            return True
+        return False
+
+
+
+    def refreshOperations(self):
         # TODO: Check very carefully if the order in which we refresh transactions makes any diff.
         # because allTransactions just stores the transactions in the order in which the trans came.
         # but operations themselves can happen in any way.
-        pass
+        
+        for operation in self.operations:
+            if isinstance(operation, (ReadOp, WriteOp, EndOp)) and operation.status == OperationStatus.IN_PROGRESS:
+                self.allTransactions[operation.transactionId].processOperation(operation)
 
 
     def run(self):
@@ -138,8 +170,12 @@ class TransactionManager:
             if not operation:
                 continue
 
+            self.operations.append(operation)
             self.time += 1
             print("********** Time={} **********".format(self.time))
+
+            if self.checkAndDealWithDeadlock():
+                self.refreshOperations()
 
             if isinstance(operation, BeginOp):
                 if operation.transactionId in self.allTransactions:
@@ -165,8 +201,6 @@ class TransactionManager:
                     if isinstance(operation, EndOp):
                         operation.commitTime = self.time
                     self.allTransactions[operation.transactionId].processOperation(operation)
-                    if isinstance(operation, EndOp):
-                        self.refreshTransactions()
             elif isinstance(operation, DumpOp):
                 self.dump()
             elif isinstance(operation, FailOp):
@@ -185,9 +219,8 @@ class TransactionManager:
                     # TODO: Probably might be a good idea to refresh transactions here also.
                     # what if a trans is waiting on a non replicated items read and the dm for it just came up.
                     self.recover(operation.site)
-                    self.refreshTransactions()
-
-            self.checkAndDealWithDeadlock()
+            
+            self.refreshOperations()
 
             # One huge bug is:
             # I say a record is recovered when a trans writes to it. But it should recover when it commits to it.

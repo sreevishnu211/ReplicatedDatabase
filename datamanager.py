@@ -20,15 +20,38 @@ class DataManager:
                 self.records[i] = Record(initialValue=i*10, replicated=False)
 
     
-    def isReadOKForRWTrans(self, record):
+    def isReadOKForRWTrans(self, record, transactionId):
         if self.status == DataManagerStatus.FAILED:
             return False
         # if record in self.records and ( self.records[record].recovered or self.records[record].versions[0].transactionId == transactionId:
         # and move the recovered=true to committing part.
-        if record in self.records and self.records[record].recovered:
+        if record in self.records and ( self.records[record].recovered or self.records[record].version[0].transactionId == transactionId ):
             return True
         else:
             return False
+
+    def readRecordForROTrans(self, record, transStartTime):
+        if self.status == DataManagerStatus.FAILED or record not in self.records:
+            return [False, None]
+        
+        # TODO: Recheck commitTime can be both None and 0
+        versionToRead = None
+        for version in self.records[record].versions:
+            if version.commitTime != None and version.commitTime <= transStartTime:
+                versionToRead = version
+                break
+        if not versionToRead:
+            self.records[record].versions[0]
+        
+        if self.records[record].replicated:
+            for failTimes in self.failedTimes:
+                if versionToRead.commitTime < failTimes < transStartTime:
+                    return [False, None]
+        
+        return [True,versionToRead.data]
+        
+
+
 
     def isWriteOKForRWTrans(self, record):
         if self.status == DataManagerStatus.FAILED:
@@ -75,7 +98,7 @@ class DataManager:
         
         self.status = DataManagerStatus.FAILED
         self.failedTimes.append(failureTime)
-        for record in self.records:
+        for record in self.records.values():
             record.fail()
 
 
@@ -92,15 +115,21 @@ class DataManager:
         print("Site " + str(self.dataManagerId) + ": " + " ".join(result))
 
     def removeUncommittedDataForTrans(self, transactionId):
-        for record in self.records:
+        for record in self.records.values():
             record.removeUncommittedVersionForTrans(transactionId)
     
     def removeLocksForTrans(self, transactionId):
-        for record in self.records:
+        for record in self.records.values():
             record.removeLocksForTrans(transactionId)
 
     def commitTransaction(self, transactionId, commitTime):
-        for record in self.records:
+        for record in self.records.values():
             record.commitTransaction(transactionId, commitTime)
+
+    def getBlockingRelations(self):
+        blockingRelations = set()
+        for record in self.records.values():
+            blockingRelations.update(record.getBlockingRelations())
+        return blockingRelations
         
         

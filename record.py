@@ -26,8 +26,6 @@ class Record:
 
     def insertNewVersion(self, data, transactionId, commitTime = None):
         self.versions.appendleft(RecordVersion(data, transactionId, commitTime))
-        # TODO: Should i be making it recovered here or after the value commits?
-        self.recovered = True
 
     def addLockRequest(self, transactionId, lockType):
         if lockType == LockType.READ:
@@ -110,6 +108,7 @@ class Record:
         for version in self.versions:
             if version.commitTime == None and version.transactionId == transactionId:
                 version.commitTime = commitTime
+        self.recovered = True
 
     def getDataAtSpecificTime(self, requestedTime):
         for i in range( len(self.versions) ):
@@ -117,3 +116,22 @@ class Record:
                 return self.versions[i].data
         
         return None
+
+    def getBlockingRelations(self):
+        blockingRelations = set()
+        for current in range(len(self.locks)):
+            for previous in range(current):
+                if self.blocking(self.locks[previous],self.locks[current]):
+                    blockingRelations.add((self.locks[current].transactionId, self.locks[previous].transactionId))
+
+        return blockingRelations
+
+    def blocking(self, previous, current):
+        if previous.lockType == LockType.READ and current.lockType == LockType.READ:
+            return False
+        if previous.transactionId == current.transactionId:
+            return False
+        
+        return True
+        
+        
