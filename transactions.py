@@ -20,7 +20,7 @@ class TransactionBaseClass:
     def processOperation(self, operation):
         raise Exception("TransactionBaseClass.processOperation not implemented.")
     
-    def finishTransaction(self):
+    def endOperation(self):
         raise Exception("TransactionBaseClass.finishTransaction not implemented.")
 
     def abortTransaction(self):
@@ -35,7 +35,7 @@ class ReadOnlyTransaction(TransactionBaseClass):
     def processOperation(self, operation):
         pass
 
-    def finishTransaction(self):
+    def endOperation(self):
         pass
 
     def abortTransaction(self):
@@ -49,6 +49,12 @@ class ReadWriteTransaction(TransactionBaseClass):
 
     def readOperation(self, operation):
         if operation.status == OperationStatus.COMPLETED:
+            return
+
+        if self.status == TransactionStatus.ABORTED and self.isDeadlocked:
+            # TODO: Revisit this.
+            print("Transaction - {} has already been aborted due to a deadlock, so operation {} wont be executed.".format(self.transactionId, operation))
+            operation.status = OperationStatus.COMPLETED
             return
 
         for dm in self.dataManagers.values():
@@ -65,6 +71,12 @@ class ReadWriteTransaction(TransactionBaseClass):
 
     def writeOperation(self, operation):
         if operation.status == OperationStatus.COMPLETED:
+            return
+
+        if self.status == TransactionStatus.ABORTED and self.isDeadlocked:
+            # TODO: Revisit this.
+            print("Transaction - {} has already been aborted due to a deadlock, so operation {} wont be executed.".format(self.transactionId, operation))
+            operation.status = OperationStatus.COMPLETED
             return
         
         writeLockStatus = []
@@ -93,12 +105,44 @@ class ReadWriteTransaction(TransactionBaseClass):
             self.readOperation(operation)
         elif isinstance(operation, WriteOp):
             self.writeOperation(operation)
+        elif isinstance(operation, EndOp):
+            self.endOperation(operation)
 
 
-    def finishTransaction(self):
-        pass
+    def endOperation(self, operation):
+        if operation.status == OperationStatus.COMPLETED:
+            return
+
+        if self.status == TransactionStatus.ABORTED and self.isDeadlocked:
+            print("Transaction {} was aborted due to a deadlock in the past.".format(self.transactionId))
+            operation.status = OperationStatus.COMPLETED
+            self.status = TransactionStatus.COMPLETED
+            return
+
+        if len(self.operations) > 0 and not isinstance( self.operations[-1], EndOp):
+            print("Transaction {} has received an operation {} after the end operation".format(self.transactionId, self.operations[-1]))
+            exit()
+
+        allOperationStatus = [ self.operations[i].status == OperationStatus.COMPLETED for i in range(len(self.operations) - 1) ]
+        
+        if all(allOperationStatus): # TODO: Decide if you want to throw an error or wait for operations to complete
+            if self.status == TransactionStatus.ABORTED:
+                for dataManager in self.dataManagers.values():
+                    dataManager.removeUncommittedDataForTrans(self.transactionId)
+                    dataManager.removeLocksForTrans(self.transactionId)
+                print("Transaction {} was aborted due to a site failure.".format(self.transactionId))
+            else:
+                for dataManager in self.dataManagers.values():
+                    dataManager.commitTransaction(self.transactionId, operation.commitTime)
+                    dataManager.removeLocksForTrans(self.transactionId)
+                print("Transaction {} was committed.".format(self.transactionId))
+            operation.status = OperationStatus.COMPLETED
+            self.status = TransactionStatus.COMPLETED
+        
+            
 
     def abortTransaction(self):
+        # TODO: set all operations to completed
         pass
 
     def refreshOperations(self):

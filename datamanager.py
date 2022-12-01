@@ -23,7 +23,8 @@ class DataManager:
     def isReadOKForRWTrans(self, record):
         if self.status == DataManagerStatus.FAILED:
             return False
-
+        # if record in self.records and ( self.records[record].recovered or self.records[record].versions[0].transactionId == transactionId:
+        # and move the recovered=true to committing part.
         if record in self.records and self.records[record].recovered:
             return True
         else:
@@ -89,5 +90,17 @@ class DataManager:
         for recordId, record in self.records.items():
             result.append("x"+ str(recordId) + ":" + str(record.getLatestCommittedData()))
         print("Site " + str(self.dataManagerId) + ": " + " ".join(result))
+
+    def removeUncommittedDataForTrans(self, transactionId):
+        for record in self.records:
+            record.removeUncommittedVersionForTrans(transactionId)
+    
+    def removeLocksForTrans(self, transactionId):
+        for record in self.records:
+            record.removeLocksForTrans(transactionId)
+
+    def commitTransaction(self, transactionId, commitTime):
+        for record in self.records:
+            record.commitTransaction(transactionId, commitTime)
         
         

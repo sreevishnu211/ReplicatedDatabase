@@ -123,6 +123,9 @@ class TransactionManager:
         pass
 
     def refreshTransactions(self):
+        # TODO: Check very carefully if the order in which we refresh transactions makes any diff.
+        # because allTransactions just stores the transactions in the order in which the trans came.
+        # but operations themselves can happen in any way.
         pass
 
 
@@ -152,31 +155,20 @@ class TransactionManager:
                     exit()
                 else:
                     self.allTransactions[operation.transactionId] = ReadOnlyTransaction(operation.transactionId, self.time, self.dataManagers)
-            elif isinstance(operation, ReadOp) or isinstance(operation, WriteOp):
+            elif isinstance(operation, ReadOp) or isinstance(operation, WriteOp) or isinstance(operation, EndOp):
                 if operation.transactionId not in self.allTransactions or \
                 self.allTransactions[operation.transactionId].status == TransactionStatus.COMPLETED:
                     print("Error in input line - {}".format(line))
                     print("Transaction - {} hasnt been begun or is unknown or is ended".format(operation.transactionId))
                     exit()
-                elif self.allTransactions[operation.transactionId].status == TransactionStatus.ABORTED \
-                    and self.allTransactions[operation.transactionId].isDeadlocked:
-                    print("Transaction - {} has already been aborted due to a deadlock, so this operation will not execute".format(operation.transactionId))
                 else:
+                    if isinstance(operation, EndOp):
+                        operation.commitTime = self.time
                     self.allTransactions[operation.transactionId].processOperation(operation)
+                    if isinstance(operation, EndOp):
+                        self.refreshTransactions()
             elif isinstance(operation, DumpOp):
                 self.dump()
-            elif isinstance(operation, EndOp):
-                if operation.transactionId not in self.allTransactions or \
-                self.allTransactions[operation.transactionId].status == TransactionStatus.COMPLETED:
-                    print("Error in input line - {}".format(line))
-                    print("Transaction - {} hasnt been begun or is unknown or is ended".format(operation.transactionId))
-                    exit()
-                elif self.allTransactions[operation.transactionId].status == TransactionStatus.ABORTED:
-                    # TODO: Revisit this
-                    self.allTransactions[operation.transactionId].status = TransactionStatus.COMPLETED
-                else:
-                    self.allTransactions[operation.transactionId].finishTransaction()
-                    self.refreshTransactions()
             elif isinstance(operation, FailOp):
                 if operation.site not in self.dataManagers:
                     print("Error in input line - {}".format(line))
@@ -196,3 +188,10 @@ class TransactionManager:
                     self.refreshTransactions()
 
             self.checkAndDealWithDeadlock()
+
+            # One huge bug is:
+            # I say a record is recovered when a trans writes to it. But it should recover when it commits to it.
+            # But if i recover it at commit time then another read operation happening in the same trans wont be 
+            # able to read it, because the record would not have recovered.
+            # But if i leave it at write time then if the transaction aborts then i will leave the record as recovered even when its not.
+            # Make the change in isReadOKForRWTrans

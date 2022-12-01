@@ -26,6 +26,7 @@ class Record:
 
     def insertNewVersion(self, data, transactionId, commitTime = None):
         self.versions.appendleft(RecordVersion(data, transactionId, commitTime))
+        # TODO: Should i be making it recovered here or after the value commits?
         self.recovered = True
 
     def addLockRequest(self, transactionId, lockType):
@@ -55,23 +56,23 @@ class Record:
         
         return False
     
-    def removeUncommitedVersionForTrans(self, transactionId):
+    def removeUncommittedVersionForTrans(self, transactionId):
         newVersions = deque([])
-        for i in range( len(self.versions) ):
-            if self.versions[i].commitTime == None and self.versions[i].transactionId == transactionId:
+        for version in self.versions:
+            if version.commitTime == None and version.transactionId == transactionId:
                 continue
             else:
-                newVersions.append(self.versions[i])
+                newVersions.append(version)
 
         self.versions = newVersions
 
     def removeAllUncommitedVersions(self):
         newVersions = deque([])
-        for i in range( len(self.versions) ):
-            if self.versions[i].commitTime == None:
+        for version in self.versions:
+            if version.commitTime == None:
                 continue
             else:
-                newVersions.append(self.versions[i])
+                newVersions.append(version)
         self.versions = newVersions
 
     def fail(self):
@@ -95,6 +96,20 @@ class Record:
         for version in self.versions:
             if version.commitTime != None:
                 return version.data
+
+    def removeLocksForTrans(self, transactionId):
+        newLocks = deque([])
+        for lock in self.locks:
+            if lock.transactionId == transactionId:
+                continue
+            else:
+                newLocks.append(lock)
+        self.locks = newLocks
+
+    def commitTransaction(self, transactionId, commitTime):
+        for version in self.versions:
+            if version.commitTime == None and version.transactionId == transactionId:
+                version.commitTime = commitTime
 
     def getDataAtSpecificTime(self, requestedTime):
         for i in range( len(self.versions) ):
