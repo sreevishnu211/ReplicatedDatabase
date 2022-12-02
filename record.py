@@ -3,12 +3,15 @@ from enum import Enum
 
 class LockType(Enum):
     READ = 1
-    WRITE = 1
+    WRITE = 2
 
 class Lock:
     def __init__(self, transactionId, lockType):
         self.transactionId = transactionId
         self.lockType = lockType
+    
+    def __str__(self):
+        return "{}.W".format(self.transactionId) if self.lockType == LockType.WRITE else "{}.R".format(self.transactionId)
 
 class RecordVersion:
     def __init__(self, data, transactionId, commitTime = None):
@@ -121,9 +124,9 @@ class Record:
         blockingRelations = set()
         for current in range(len(self.locks)):
             for previous in range(current):
+                # print("{} - {} -> {}".format(self.locks[previous], self.locks[current],self.blocking(self.locks[previous],self.locks[current]) ))
                 if self.blocking(self.locks[previous],self.locks[current]):
                     blockingRelations.add((self.locks[current].transactionId, self.locks[previous].transactionId))
-
         return blockingRelations
 
     def blocking(self, previous, current):

@@ -103,16 +103,18 @@ class TransactionManager:
             exit()
 
     def fail(self, dataManagerId):
+        print("Site-{} fails".format(dataManagerId))
         self.dataManagers[dataManagerId].fail(self.time)
         for transaction in self.allTransactions.values():
             if transaction.status == TransactionStatus.ALIVE and \
                 isinstance(transaction, ReadWriteTransaction) and \
                 dataManagerId in transaction.dataManagersTouched:
                 transaction.status = TransactionStatus.ABORTED
-                print("Transaction {} will abort because it had touched site {}".format(transaction.transactionId, dataManagerId))
+                # print("Transaction {} will abort because it had touched site {}".format(transaction.transactionId, dataManagerId))
 
 
     def recover(self, dataManagerId):
+        print("Site-{} recovers".format(dataManagerId))
         self.dataManagers[dataManagerId].recover()
 
 
@@ -139,12 +141,13 @@ class TransactionManager:
             graph[node].add(neighbour)
         youngestTransTS = float("-inf")
         youngestTrans = None
-        for trans in graph:
-            if self.cycleDetected() and self.allTransactions[trans].startTime > youngestTransTS:
+        for trans in list(graph.keys()):
+            if self.cycleDetected(trans, set(), trans, graph) and self.allTransactions[trans].startTime > youngestTransTS:
                 youngestTransTS = self.allTransactions[trans].startTime
                 youngestTrans = self.allTransactions[trans]
         
         if youngestTrans:
+            print("Deadlock Detected")
             youngestTrans.abortDeadlockedTransaction()
             return True
         return False
@@ -170,12 +173,13 @@ class TransactionManager:
             if not operation:
                 continue
 
-            self.operations.append(operation)
             self.time += 1
             print("********** Time={} **********".format(self.time))
-
+            print(operation)
             if self.checkAndDealWithDeadlock():
                 self.refreshOperations()
+
+            self.operations.append(operation)
 
             if isinstance(operation, BeginOp):
                 if operation.transactionId in self.allTransactions:
@@ -194,6 +198,7 @@ class TransactionManager:
             elif isinstance(operation, ReadOp) or isinstance(operation, WriteOp) or isinstance(operation, EndOp):
                 if operation.transactionId not in self.allTransactions or \
                 self.allTransactions[operation.transactionId].status == TransactionStatus.COMPLETED:
+                    print(self.allTransactions[operation.transactionId].status)
                     print("Error in input line - {}".format(line))
                     print("Transaction - {} hasnt been begun or is unknown or is ended".format(operation.transactionId))
                     exit()

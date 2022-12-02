@@ -25,7 +25,7 @@ class DataManager:
             return False
         # if record in self.records and ( self.records[record].recovered or self.records[record].versions[0].transactionId == transactionId:
         # and move the recovered=true to committing part.
-        if record in self.records and ( self.records[record].recovered or self.records[record].version[0].transactionId == transactionId ):
+        if record in self.records and ( self.records[record].recovered or self.records[record].versions[0].transactionId == transactionId ):
             return True
         else:
             return False
@@ -123,8 +123,10 @@ class DataManager:
             record.removeLocksForTrans(transactionId)
 
     def commitTransaction(self, transactionId, commitTime):
-        for record in self.records.values():
-            record.commitTransaction(transactionId, commitTime)
+        # TODO: Make sure all operations are happening only when dm is alive and not failed.
+        if self.status == DataManagerStatus.LIVE:
+            for record in self.records.values():
+                record.commitTransaction(transactionId, commitTime)
 
     def getBlockingRelations(self):
         blockingRelations = set()

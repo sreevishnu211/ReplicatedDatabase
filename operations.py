@@ -48,6 +48,7 @@ class EndOp:
     def __init__(self, transactionId):
         self.transactionId = transactionId
         self.commitTime = None
+        self.status = OperationStatus.IN_PROGRESS
     
     def __str__(self):
         return "end({})".format(str(self.transactionId))
