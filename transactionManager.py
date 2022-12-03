@@ -202,6 +202,7 @@ class TransactionManager:
                 else:
                     if isinstance(operation, EndOp):
                         operation.commitTime = self.time
+                    self.allTransactions[operation.transactionId].operations.append(operation)
                     self.allTransactions[operation.transactionId].processOperation(operation)
             elif isinstance(operation, DumpOp):
                 self.dump()

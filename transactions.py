@@ -38,7 +38,6 @@ class ReadOnlyTransaction(TransactionBaseClass):
                 return
 
     def processOperation(self, operation):
-        self.operations.append(operation)
         if isinstance(operation, ReadOp):
             self.readOperation(operation)
         elif isinstance(operation, EndOp):
@@ -119,7 +118,6 @@ class ReadWriteTransaction(TransactionBaseClass):
 
 
     def processOperation(self, operation):
-        self.operations.append(operation)
         if isinstance(operation, ReadOp):
             self.readOperation(operation)
         elif isinstance(operation, WriteOp):
