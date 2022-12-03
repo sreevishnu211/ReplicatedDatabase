@@ -1,6 +1,8 @@
 import sys
 import subprocess
 
+# Create folder outputs in root run python3 testall <no of tests>
+
 if len(sys.argv) == 1:
     print("Enter no of files to test")
     exit()
