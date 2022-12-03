@@ -19,12 +19,6 @@ class TransactionBaseClass:
 
     def processOperation(self, operation):
         raise Exception("TransactionBaseClass.processOperation not implemented.")
-    
-    def endOperation(self):
-        raise Exception("TransactionBaseClass.finishTransaction not implemented.")
-
-    def abortDeadlockedTransaction(self):
-        raise Exception("TransactionBaseClass.abortTransaction not implemented.")
 
 
 class ReadOnlyTransaction(TransactionBaseClass):
@@ -39,7 +33,7 @@ class ReadOnlyTransaction(TransactionBaseClass):
         for dm in self.dataManagers.values():
             resultAndData = dm.readRecordForROTrans(operation.record, self.startTime)
             if resultAndData and resultAndData[0]:
-                print("{} read x{} from site-{} and got {}".format(self.transactionId, operation.record, dm.dataManagerId, resultAndData[1]))
+                print("{} reads x{}.{} => {}".format(self.transactionId, operation.record, dm.dataManagerId, resultAndData[1]))
                 operation.status = OperationStatus.COMPLETED
                 return
 
@@ -58,13 +52,13 @@ class ReadOnlyTransaction(TransactionBaseClass):
             return
 
         if len(self.operations) > 0 and not isinstance( self.operations[-1], EndOp):
-            print("Transaction {} has received an operation {} after the end operation".format(self.transactionId, self.operations[-1]))
+            print("{} has received an operation {} after the end operation".format(self.transactionId, self.operations[-1]))
             exit()
 
         allOperationStatus = [ self.operations[i].status == OperationStatus.COMPLETED for i in range(len(self.operations) - 1) ]
 
         if all(allOperationStatus): # TODO: Decide if you want to throw an error or wait for operations to complete
-            print("Transaction {} was committed.".format(self.transactionId))
+            print("{} commits.".format(self.transactionId))
             operation.status = OperationStatus.COMPLETED
             self.status = TransactionStatus.COMPLETED
 
@@ -79,8 +73,7 @@ class ReadWriteTransaction(TransactionBaseClass):
             return
 
         if self.status == TransactionStatus.ABORTED and self.isDeadlocked:
-            # TODO: Revisit this.
-            print("Transaction - {} has already been aborted due to a deadlock, so operation {} wont be executed.".format(self.transactionId, operation))
+            print("{} has already been aborted due to a deadlock, so operation {} wont be executed.".format(self.transactionId, operation))
             operation.status = OperationStatus.COMPLETED
             return
 
@@ -89,7 +82,7 @@ class ReadWriteTransaction(TransactionBaseClass):
                 dm.requestReadLock(self.transactionId, operation.record)
                 if dm.isReadLockAquired(self.transactionId, operation.record):
                     data = dm.readRecord(operation.record)
-                    print("{} read x{} from site-{} and got {}".format(self.transactionId, operation.record, dm.dataManagerId, data))
+                    print("{} reads x{}.{} => {}".format(self.transactionId, operation.record, dm.dataManagerId, data))
                     self.dataManagersTouched.add(dm.dataManagerId)
                     operation.status = OperationStatus.COMPLETED
                     return
@@ -101,8 +94,7 @@ class ReadWriteTransaction(TransactionBaseClass):
             return
 
         if self.status == TransactionStatus.ABORTED and self.isDeadlocked:
-            # TODO: Revisit this.
-            print("Transaction - {} has already been aborted due to a deadlock, so operation {} wont be executed.".format(self.transactionId, operation))
+            print("{} has already been aborted due to a deadlock, so operation {} wont be executed.".format(self.transactionId, operation))
             operation.status = OperationStatus.COMPLETED
             return
         
@@ -120,7 +112,7 @@ class ReadWriteTransaction(TransactionBaseClass):
                     wroteRecordTo.append(dm.dataManagerId)
 
         if len(wroteRecordTo) > 0:
-            print("{} wrote the value {} to record x{} in sites-{}".format(self.transactionId, operation.value, operation.record, wroteRecordTo))
+            print("{} wrote {} to x{} in sites-{}".format(self.transactionId, operation.value, operation.record, wroteRecordTo))
             for dmId in wroteRecordTo:
                 self.dataManagersTouched.add(dmId)
             operation.status = OperationStatus.COMPLETED
@@ -141,29 +133,29 @@ class ReadWriteTransaction(TransactionBaseClass):
             return
 
         if self.status == TransactionStatus.ABORTED and self.isDeadlocked:
-            print("Transaction {} was aborted due to a deadlock in the past.".format(self.transactionId))
+            print("{} was aborted due to a deadlock in the past.".format(self.transactionId))
+            self.dataManagersTouched = set()
             operation.status = OperationStatus.COMPLETED
             self.status = TransactionStatus.COMPLETED
             return
 
         if len(self.operations) > 0 and not isinstance( self.operations[-1], EndOp):
-            print("Transaction {} has received an operation {} after the end operation".format(self.transactionId, self.operations[-1]))
+            print("{} has received an operation {} after the end operation".format(self.transactionId, self.operations[-1]))
             exit()
 
         allOperationStatus = [ self.operations[i].status == OperationStatus.COMPLETED for i in range(len(self.operations) - 1) ]
         
-        # TODO: Make sure all operations are happening only when dm is alive and not failed.
         if all(allOperationStatus): # TODO: Decide if you want to throw an error or wait for operations to complete
             if self.status == TransactionStatus.ABORTED:
                 for dataManager in self.dataManagers.values():
                     dataManager.removeUncommittedDataForTrans(self.transactionId)
                     dataManager.removeLocksForTrans(self.transactionId)
-                print("Transaction {} was aborted due to a site failure.".format(self.transactionId))
+                print("{} was aborted due to a site failure.".format(self.transactionId))
             else:
                 for dataManager in self.dataManagers.values():
                     dataManager.commitTransaction(self.transactionId, operation.commitTime)
                     dataManager.removeLocksForTrans(self.transactionId)
-                print("Transaction {} was committed.".format(self.transactionId))
+                print("{} commits.".format(self.transactionId))
             
             self.dataManagersTouched = set()
             operation.status = OperationStatus.COMPLETED
@@ -182,4 +174,4 @@ class ReadWriteTransaction(TransactionBaseClass):
         for dataManager in self.dataManagers.values():
             dataManager.removeUncommittedDataForTrans(self.transactionId)
             dataManager.removeLocksForTrans(self.transactionId)
-        print("Transaction {} was aborted due to a deadlock".format(self.transactionId))
+        print("{} was aborted due to a deadlock".format(self.transactionId))

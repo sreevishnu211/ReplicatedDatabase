@@ -84,13 +84,6 @@ class Record:
         
     
     def getLatestData(self):
-        # TODO: probably just return the latest data. because if there is a write from a trans 
-        # and the same trans reads it, then we should return the writes value.
-        # for i in range( len(self.versions) ):
-        #     if self.versions[i].commitTime != None:
-        #         return self.versions[i].data
-        
-        # return None
         return self.versions[0].data
 
     def getLatestCommittedData(self):
@@ -111,14 +104,7 @@ class Record:
         for version in self.versions:
             if version.commitTime == None and version.transactionId == transactionId:
                 version.commitTime = commitTime
-        self.recovered = True
-
-    def getDataAtSpecificTime(self, requestedTime):
-        for i in range( len(self.versions) ):
-            if self.versions[i].commitTime != None and self.versions[i].commitTime <= requestedTime:
-                return self.versions[i].data
-        
-        return None
+                self.recovered = True
 
     def getBlockingRelations(self):
         blockingRelations = set()

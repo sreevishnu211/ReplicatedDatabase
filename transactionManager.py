@@ -10,7 +10,7 @@ class TransactionManager:
         self.numOfSites = numOfSites
         self.numOfRecords = numOfRecords
         
-        if fileName:
+        if fileName != None:
             self.inputFile = open(fileName)
         else:
             self.inputFile = sys.stdin
@@ -154,13 +154,11 @@ class TransactionManager:
 
 
 
-    def refreshOperations(self):
-        # TODO: Check very carefully if the order in which we refresh transactions makes any diff.
-        # because allTransactions just stores the transactions in the order in which the trans came.
-        # but operations themselves can happen in any way.
-        
+    def refreshOperations(self):        
         for operation in self.operations:
-            if isinstance(operation, (ReadOp, WriteOp, EndOp)) and operation.status == OperationStatus.IN_PROGRESS:
+            if isinstance(operation, (ReadOp, WriteOp, EndOp)) \
+                and operation.status == OperationStatus.IN_PROGRESS \
+                and self.allTransactions[operation.transactionId].status != TransactionStatus.COMPLETED:
                 self.allTransactions[operation.transactionId].processOperation(operation)
 
 
@@ -175,7 +173,7 @@ class TransactionManager:
 
             self.time += 1
             print("********** Time={} **********".format(self.time))
-            print(operation)
+            #print(operation)
             if self.checkAndDealWithDeadlock():
                 self.refreshOperations()
 
@@ -198,7 +196,6 @@ class TransactionManager:
             elif isinstance(operation, ReadOp) or isinstance(operation, WriteOp) or isinstance(operation, EndOp):
                 if operation.transactionId not in self.allTransactions or \
                 self.allTransactions[operation.transactionId].status == TransactionStatus.COMPLETED:
-                    print(self.allTransactions[operation.transactionId].status)
                     print("Error in input line - {}".format(line))
                     print("Transaction - {} hasnt been begun or is unknown or is ended".format(operation.transactionId))
                     exit()
@@ -221,15 +218,6 @@ class TransactionManager:
                     print("The given site - {} is not in the range 1-20".format(operation.site))
                     exit()
                 else:
-                    # TODO: Probably might be a good idea to refresh transactions here also.
-                    # what if a trans is waiting on a non replicated items read and the dm for it just came up.
                     self.recover(operation.site)
             
             self.refreshOperations()
-
-            # One huge bug is:
-            # I say a record is recovered when a trans writes to it. But it should recover when it commits to it.
-            # But if i recover it at commit time then another read operation happening in the same trans wont be 
-            # able to read it, because the record would not have recovered.
-            # But if i leave it at write time then if the transaction aborts then i will leave the record as recovered even when its not.
-            # Make the change in isReadOKForRWTrans
