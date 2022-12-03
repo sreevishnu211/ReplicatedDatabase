@@ -7,7 +7,18 @@ class DataManagerStatus(Enum):
     FAILED = 2
 
 class DataManager:
+    """
+    This class represent a single site.
+    """
+
     def __init__(self, dataManagerId, numOfRecords):
+        """
+        failedTimes are list of times at which this site had failed.
+        We will use it in multiversion read to determine if we can read a
+        replicated record from this site.
+        records are all the records that reside on this site,
+        it is a collection of objects of Record class.
+        """
         self.dataManagerId = dataManagerId
         self.status = DataManagerStatus.LIVE
         self.failedTimes = []
@@ -20,6 +31,9 @@ class DataManager:
 
     
     def isReadOKForRWTrans(self, record, transactionId):
+        """
+        check to see if a transaction can read a record from this site.
+        """
         if self.status == DataManagerStatus.FAILED:
             return False
 
@@ -29,6 +43,10 @@ class DataManager:
             return False
 
     def readRecordForROTrans(self, record, transStartTime):
+        """
+        check to see if a read only transaction can read a record from this site,
+        and if yes it returns the data too.
+        """
         if self.status == DataManagerStatus.FAILED or record not in self.records:
             return [False, None]
         
@@ -51,6 +69,9 @@ class DataManager:
 
 
     def isWriteOKForRWTrans(self, record):
+        """
+        check to see if a transaction can write a record to this site.
+        """
         if self.status == DataManagerStatus.FAILED:
             return False
         
@@ -60,6 +81,9 @@ class DataManager:
             return False
 
     def requestReadLock(self, transactionId, record):
+        """
+        transaction requests a read lock on record.
+        """
         if self.status == DataManagerStatus.FAILED:
             return
 
@@ -67,6 +91,9 @@ class DataManager:
             self.records[record].addLockRequest(transactionId, LockType.READ)
 
     def requestWriteLock(self, transactionId, record):
+        """
+        transaction requests a write lock on record.
+        """
         if self.status == DataManagerStatus.FAILED:
             return
 
@@ -74,6 +101,9 @@ class DataManager:
             self.records[record].addLockRequest(transactionId, LockType.WRITE)
 
     def isReadLockAquired(self, transactionId, record):
+        """
+        transaction checks to see if it has aquired a read lock on record.
+        """
         if self.status == DataManagerStatus.FAILED:
             return False
 
@@ -83,6 +113,9 @@ class DataManager:
             return False
 
     def isWriteLockAquired(self, transactionId, record):
+        """
+        transaction checks to see if it has aquired a write lock on record.
+        """
         if self.status == DataManagerStatus.FAILED:
             return False
 
@@ -92,6 +125,9 @@ class DataManager:
             return False
     
     def readRecord(self, record):
+        """
+        reads the specified record.
+        """
         if self.status == DataManagerStatus.FAILED:
             return None
 
@@ -101,6 +137,9 @@ class DataManager:
             return None
     
     def writeRecord(self, record, value, transactionId, commitTime=None ):
+        """
+        writes to the specified record.
+        """
         if self.status == DataManagerStatus.FAILED:
             return
 
@@ -108,6 +147,12 @@ class DataManager:
             self.records[record].insertNewVersion(value, transactionId, commitTime)
 
     def fail(self, failureTime):
+        """
+        Fails the datamanager,
+        clears the locks,
+        clears uncommitted values,
+        sets the recovered flag appropriately.
+        """
         if self.status == DataManagerStatus.FAILED:
             raise Exception("InputError: Site {} is already failed".format(self.dataManagerId))
             exit()
@@ -119,26 +164,41 @@ class DataManager:
 
 
     def recover(self):
+        """
+        recovers the data site.
+        """
         if self.status == DataManagerStatus.FAILED:
             self.status = DataManagerStatus.LIVE
         else:
             raise Exception("InputError: Site {} is already live.".format(self.dataManagerId))
 
     def dump(self):
+        """
+        print all the record/values in this data site.
+        """
         result = []
         for recordId, record in self.records.items():
             result.append("x"+ str(recordId) + ":" + str(record.getLatestCommittedData()))
         print("Site " + str(self.dataManagerId) + ": " + " ".join(result))
 
     def removeUncommittedDataForTrans(self, transactionId):
+        """
+        remove uncommitted data of a trans if the trans aborts.
+        """
         for record in self.records.values():
             record.removeUncommittedVersionForTrans(transactionId)
     
     def removeLocksForTrans(self, transactionId):
+        """
+        remove locks of a trans if the trans ends.
+        """
         for record in self.records.values():
             record.removeLocksForTrans(transactionId)
 
     def commitTransaction(self, transactionId, commitTime):
+        """
+        commit all the uncommitted versions of data of a trans when it ends.
+        """
         # TODO: Make sure all operations are happening only when dm is alive and not failed.
         if self.status == DataManagerStatus.FAILED:
             return
@@ -147,6 +207,9 @@ class DataManager:
             record.commitTransaction(transactionId, commitTime)
 
     def getBlockingRelations(self):
+        """
+        blocking relations from the lock queue to check for deadlocks.
+        """
         if self.status == DataManagerStatus.FAILED:
             return set()
 

@@ -8,7 +8,16 @@ class TransactionStatus(Enum):
     ABORTED = 3
 
 class TransactionBaseClass:
+    """
+    Base class to represent both readonly and readwrite transactions.
+    """
     def __init__(self, transactionId, startTime, dataManagers):
+        """
+        operations are a list of all the operations this transaction has received.
+        dataManagers is a reference to all the dataManagers.
+        dataManagersTouched are all the data managers that have been accessed for a 
+        read/write by this transaction.
+        """
         self.transactionId = transactionId
         self.startTime = startTime
         self.operations = []
@@ -22,11 +31,17 @@ class TransactionBaseClass:
 
 
 class ReadOnlyTransaction(TransactionBaseClass):
+    """
+    class to implement Read Only Transactions.
+    """
     def __init__(self, transactionId, startTime, dataManagers):
         super().__init__(transactionId, startTime, dataManagers)
         print("Read Only Transaction {} begins.".format(self.transactionId))
 
     def readOperation(self, operation):
+        """
+        Read operation of a read only transaction.
+        """
         if operation.status == OperationStatus.COMPLETED:
             return
         
@@ -38,6 +53,9 @@ class ReadOnlyTransaction(TransactionBaseClass):
                 return
 
     def processOperation(self, operation):
+        """
+        Processes all the operation given for a read only transaction.
+        """
         if isinstance(operation, ReadOp):
             self.readOperation(operation)
         elif isinstance(operation, EndOp):
@@ -47,6 +65,9 @@ class ReadOnlyTransaction(TransactionBaseClass):
             exit()
 
     def endOperation(self, operation):
+        """
+        End operation of a read only transaction.
+        """
         if operation.status == OperationStatus.COMPLETED:
             return
 
@@ -81,11 +102,18 @@ class ReadOnlyTransaction(TransactionBaseClass):
 
 
 class ReadWriteTransaction(TransactionBaseClass):
+    """
+    class to implement a Read Write Transaction.
+    """
+
     def __init__(self, transactionId, startTime, dataManagers):
         super().__init__(transactionId, startTime, dataManagers)
         print("Read Write Transaction {} begins.".format(self.transactionId))
 
     def readOperation(self, operation):
+        """
+        Read operation of a Read Write transaction.
+        """
         if operation.status == OperationStatus.COMPLETED:
             return
 
@@ -107,6 +135,9 @@ class ReadWriteTransaction(TransactionBaseClass):
 
 
     def writeOperation(self, operation):
+        """
+        Write operation of a Read Write transaction
+        """
         if operation.status == OperationStatus.COMPLETED:
             return
 
@@ -136,6 +167,9 @@ class ReadWriteTransaction(TransactionBaseClass):
 
 
     def processOperation(self, operation):
+        """
+        Processes all the operations pertaining to a Read Write transaction.
+        """
         if isinstance(operation, ReadOp):
             self.readOperation(operation)
         elif isinstance(operation, WriteOp):
@@ -145,6 +179,9 @@ class ReadWriteTransaction(TransactionBaseClass):
 
 
     def endOperation(self, operation):
+        """
+        End operation of a read write transaction.
+        """
         if operation.status == OperationStatus.COMPLETED:
             return
 
@@ -183,6 +220,9 @@ class ReadWriteTransaction(TransactionBaseClass):
             
 
     def abortDeadlockedTransaction(self):
+        """
+        process to abort this transaction if it gets deadlocked.
+        """
         self.isDeadlocked = True
         self.status = TransactionStatus.ABORTED
         self.dataManagersTouched = set()

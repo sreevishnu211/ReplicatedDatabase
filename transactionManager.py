@@ -6,7 +6,20 @@ import sys
 from transactions import *
 
 class TransactionManager:
+    """
+    class to implement the transactionManager.
+    It facilitates reading the input, calling the operation
+    on the right transaction, detecting deadlocks,
+    instantiating the dataManagers, failing/recovering a site.
+    """
+
     def __init__(self, numOfSites, numOfRecords, fileName):
+        """
+        if fileName is given the input will be read from a file,
+        otherwise the input will be read from stdin.
+        allTransaction will store all live and completed transactions.
+        operations will store all the operations in the order they were received.
+        """
         self.numOfSites = numOfSites
         self.numOfRecords = numOfRecords
         
@@ -24,6 +37,9 @@ class TransactionManager:
 
         
     def parseInput(self, line):
+        """
+        parses the input throws an exception if there is a problem.
+        """
         line = line.strip()
 
         commentSplit = line.split("//")
@@ -103,6 +119,9 @@ class TransactionManager:
             exit()
 
     def fail(self, dataManagerId):
+        """
+        fails a site/dataManager.
+        """
         print("Site-{} fails".format(dataManagerId))
         self.dataManagers[dataManagerId].fail(self.time)
         for transaction in self.allTransactions.values():
@@ -114,15 +133,24 @@ class TransactionManager:
 
 
     def recover(self, dataManagerId):
+        """
+        recovers a site/dataManager.
+        """
         print("Site-{} recovers".format(dataManagerId))
         self.dataManagers[dataManagerId].recover()
 
 
     def dump(self):
+        """
+        dumps the values on all the sites/dataManagers.
+        """
         for dataManager in self.dataManagers.values():
             dataManager.dump()
 
     def cycleDetected(self, node, visited, root, graph):
+        """
+        runs DFS to check if there is a cycle in the graph.
+        """
         visited.add(node)
         for neighbour in graph[node]:
             if neighbour == root:
@@ -133,6 +161,9 @@ class TransactionManager:
         return False
 
     def checkAndDealWithDeadlock(self):
+        """
+        checks if there is a deadlock and aborts the youngest transaction.
+        """
         blockingRelations = set()
         for dataManager in self.dataManagers.values():
             blockingRelations.update(dataManager.getBlockingRelations())
@@ -155,6 +186,11 @@ class TransactionManager:
 
 
     def refreshOperations(self):        
+        """
+        Some operations would have to wait when they initially come.
+        So we refresh the operations again after each tick to check if they
+        can execute.
+        """
         for operation in self.operations:
             if isinstance(operation, (ReadOp, WriteOp, EndOp)) \
                 and operation.status == OperationStatus.IN_PROGRESS \
@@ -163,6 +199,10 @@ class TransactionManager:
 
 
     def run(self):
+        """
+        Calls the operations on the appropriate transaction.
+        This is the main flow of the whole project.
+        """
         for line in self.inputFile:
             if line.strip().lower() == "quit":
                 quit()
