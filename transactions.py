@@ -43,7 +43,7 @@ class ReadOnlyTransaction(TransactionBaseClass):
         elif isinstance(operation, EndOp):
             self.endOperation(operation)
         elif isinstance(operation, WriteOp):
-            print("Error: Received a write operation - {} on a ReadOnly Transaction {}".format(operation, self.transactionId))
+            print("InputError: Received a write operation - {} on a ReadOnly Transaction {}".format(operation, self.transactionId))
             exit()
 
     def endOperation(self, operation):
@@ -51,7 +51,7 @@ class ReadOnlyTransaction(TransactionBaseClass):
             return
 
         if len(self.operations) > 0 and not isinstance( self.operations[-1], EndOp):
-            print("{} has received an operation {} after the end operation".format(self.transactionId, self.operations[-1]))
+            print("InputError: {} has received an operation {} after the end operation".format(self.transactionId, self.operations[-1]))
             exit()
 
         allOperationStatus = [ self.operations[i].status == OperationStatus.COMPLETED for i in range(len(self.operations) - 1) ]
@@ -60,6 +60,24 @@ class ReadOnlyTransaction(TransactionBaseClass):
             print("{} commits.".format(self.transactionId))
             operation.status = OperationStatus.COMPLETED
             self.status = TransactionStatus.COMPLETED
+        else:
+            # or you can even do this stuff right after doing a read for a replicated data and if it fails with all
+            # dms live then it will never pass. so abort then and there.
+            # noOfDMsLive = 0
+            # for dm in self.dataManagers.values():
+            #     if dm.status == DataManagerStatus.LIVE:
+            #         noOfDMsLive += 1
+            # if noOfDMsLive == 10:
+            #     print("{} aborts because there are no eligible sites to read".format(self.transactionId))
+            #     for operation in self.operations:
+            #         operation.status = OperationStatus.COMPLETED
+            #     operation.status = OperationStatus.COMPLETED
+            #     self.status = TransactionStatus.COMPLETED
+            # else:
+            #     print("InputError: received an {} when there are still operations pending in {}".format(operation, self.transactionId))
+            #     exit()
+            print("InputError: received an {} when there are still operations pending in {}".format(operation, self.transactionId))
+            exit()
 
 
 class ReadWriteTransaction(TransactionBaseClass):
@@ -138,7 +156,7 @@ class ReadWriteTransaction(TransactionBaseClass):
             return
 
         if len(self.operations) > 0 and not isinstance( self.operations[-1], EndOp):
-            print("{} has received an operation {} after the end operation".format(self.transactionId, self.operations[-1]))
+            print("InputError: {} has received an operation {} after the end operation".format(self.transactionId, self.operations[-1]))
             exit()
 
         allOperationStatus = [ self.operations[i].status == OperationStatus.COMPLETED for i in range(len(self.operations) - 1) ]
@@ -158,6 +176,9 @@ class ReadWriteTransaction(TransactionBaseClass):
             self.dataManagersTouched = set()
             operation.status = OperationStatus.COMPLETED
             self.status = TransactionStatus.COMPLETED
+        else:
+            print("InputError: received an {} when there are still operations pending in {}".format(operation, self.transactionId))
+            exit()
         
             
 

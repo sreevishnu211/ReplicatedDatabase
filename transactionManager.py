@@ -99,7 +99,7 @@ class TransactionManager:
             
             
         except:
-            print("The given input - {} doesnt match the input requirements.".format(line))
+            print("InputError: The given input - {} doesnt match the input requirements.".format(line))
             exit()
 
     def fail(self, dataManagerId):

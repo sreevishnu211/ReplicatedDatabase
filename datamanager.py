@@ -109,7 +109,7 @@ class DataManager:
 
     def fail(self, failureTime):
         if self.status == DataManagerStatus.FAILED:
-            raise Exception("Site {} is already failed".format(self.dataManagerId))
+            raise Exception("InputError: Site {} is already failed".format(self.dataManagerId))
             exit()
         
         self.status = DataManagerStatus.FAILED
@@ -122,7 +122,7 @@ class DataManager:
         if self.status == DataManagerStatus.FAILED:
             self.status = DataManagerStatus.LIVE
         else:
-            raise Exception("Site {} is already live.".format(self.dataManagerId))
+            raise Exception("InputError: Site {} is already live.".format(self.dataManagerId))
 
     def dump(self):
         result = []
