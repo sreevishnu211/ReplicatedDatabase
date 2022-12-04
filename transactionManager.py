@@ -212,7 +212,7 @@ class TransactionManager:
                 continue
 
             self.time += 1
-            print("********** Time={} **********".format(self.time))
+            print("---------- Time={} ----------".format(self.time))
             #print(operation)
             if self.checkAndDealWithDeadlock():
                 self.refreshOperations()
