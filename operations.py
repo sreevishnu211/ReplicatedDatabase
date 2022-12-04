@@ -23,6 +23,7 @@ class ReadOp:
         self.transactionId = transactionId
         self.record = int(record[1:])
         self.status = OperationStatus.IN_PROGRESS
+        self.firstAttempt = True
 
     def __str__(self):
         return "R({},{})".format(str(self.transactionId), "x" + str(self.record))
@@ -33,6 +34,7 @@ class WriteOp:
         self.record = int(record[1:])
         self.value = value
         self.status = OperationStatus.IN_PROGRESS
+        self.firstAttempt = True
 
     def __str__(self):
         return "W({},{},{})".format(str(self.transactionId), "x" + str(self.record), str(self.value))
@@ -49,6 +51,7 @@ class EndOp:
         self.transactionId = transactionId
         self.commitTime = None
         self.status = OperationStatus.IN_PROGRESS
+        self.firstAttempt = True
     
     def __str__(self):
         return "end({})".format(str(self.transactionId))

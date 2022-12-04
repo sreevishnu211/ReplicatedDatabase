@@ -51,6 +51,10 @@ class ReadOnlyTransaction(TransactionBaseClass):
                 print("{} reads x{}.{} => {}".format(self.transactionId, operation.record, dm.dataManagerId, resultAndData[1]))
                 operation.status = OperationStatus.COMPLETED
                 return
+        
+        if operation.firstAttempt:
+            print("{} will wait.".format(operation))
+            operation.firstAttempt = False
 
     def processOperation(self, operation):
         """
@@ -132,6 +136,10 @@ class ReadWriteTransaction(TransactionBaseClass):
                     operation.status = OperationStatus.COMPLETED
                     return
 
+        if operation.firstAttempt:
+            print("{} will wait.".format(operation))
+            operation.firstAttempt = False
+
 
 
     def writeOperation(self, operation):
@@ -164,6 +172,11 @@ class ReadWriteTransaction(TransactionBaseClass):
             for dmId in wroteRecordTo:
                 self.dataManagersTouched.add(dmId)
             operation.status = OperationStatus.COMPLETED
+            return
+        
+        if operation.firstAttempt:
+            print("{} will wait.".format(operation))
+            operation.firstAttempt = False
 
 
     def processOperation(self, operation):
@@ -203,7 +216,7 @@ class ReadWriteTransaction(TransactionBaseClass):
                 for dataManager in self.dataManagers.values():
                     dataManager.removeUncommittedDataForTrans(self.transactionId)
                     dataManager.removeLocksForTrans(self.transactionId)
-                print("{} was aborted due to a site failure.".format(self.transactionId))
+                print("{} aborts due to a site failure.".format(self.transactionId))
             else:
                 for dataManager in self.dataManagers.values():
                     dataManager.commitTransaction(self.transactionId, operation.commitTime)
